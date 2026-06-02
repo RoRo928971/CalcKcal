@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#16a34a" />
+  <title>CalcKcal — カロリー計算</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- スマホ画面を模したフレーム -->
+  <div id="app" class="app">
+
+    <!-- ヘッダー -->
+    <header id="appHeader" class="app-header">
+      <button id="backBtn" class="icon-btn hidden" aria-label="戻る">‹</button>
+      <h1 id="headerTitle">CalcKcal</h1>
+      <div class="header-spacer"></div>
+    </header>
+
+    <!-- 画面が描画されるメインエリア -->
+    <main id="screen" class="screen"></main>
+
+    <!-- ＋記録 FAB -->
+    <button id="fab" class="fab hidden" aria-label="記録を追加">＋</button>
+
+    <!-- 下部タブ -->
+    <nav id="tabbar" class="tabbar hidden">
+      <button class="tab" data-tab="home">
+        <span class="tab-ico">🏠</span><span class="tab-lbl">ホーム</span>
+      </button>
+      <button class="tab" data-tab="record">
+        <span class="tab-ico">📝</span><span class="tab-lbl">記録</span>
+      </button>
+      <button class="tab" data-tab="history">
+        <span class="tab-ico">📊</span><span class="tab-lbl">履歴</span>
+      </button>
+      <button class="tab" data-tab="mypage">
+        <span class="tab-ico">👤</span><span class="tab-lbl">マイページ</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- モーダル（食品詳細・数量入力など） -->
+  <div id="modalRoot"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
