@@ -1,0 +1,34 @@
+{
+  "name": "CalcKcal — カロリー計算",
+  "short_name": "CalcKcal",
+  "description": "毎日の食事のカロリーを手軽に記録・管理できるカロリー計算アプリ",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "categories": ["health", "lifestyle", "food"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

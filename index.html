@@ -4,7 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#16a34a" />
+  <meta name="description" content="毎日の食事のカロリーを手軽に記録・管理できるカロリー計算アプリ" />
   <title>CalcKcal — カロリー計算</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CalcKcal" />
+
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -47,5 +58,16 @@
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- Service Worker 登録（PWA / オフライン対応） -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
+          console.warn('SW registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
