@@ -21,6 +21,8 @@ const DEFAULT_STATE = {
   weights: {},
   // お気に入り食品ID
   favorites: [],
+  // ユーザーが自分で追加した食品 { id, name, cat, unit, per, kcal, p, f, c, emoji }
+  customFoods: [],
   settings: {
     reminderTime: '',
     healthSync: false,
@@ -116,5 +118,62 @@ const Store = {
   setWeight(key, w) {
     this.state.weights[key] = w;
     this.save();
+  },
+
+  // ---- 食品（組み込み + ユーザー定義） ----
+  // 組み込みDB(FOOD_DB)とユーザー定義(customFoods)を結合して返す。
+  allFoods() {
+    return FOOD_DB.concat(this.state.customFoods || []);
+  },
+  // IDから食品定義を引く（組み込み・ユーザー定義どちらも対象）
+  findFood(id) {
+    return this.allFoods().find(f => f.id === id);
+  },
+  isCustomFood(id) {
+    return (this.state.customFoods || []).some(f => f.id === id);
+  },
+
+  // ユーザー定義食品を追加。栄養値は数値に正規化する。
+  addCustomFood(food) {
+    if (!this.state.customFoods) this.state.customFoods = [];
+    const entry = this._normalizeFood(food);
+    entry.id = 'c_' + Date.now() + Math.random().toString(36).slice(2, 6);
+    this.state.customFoods.push(entry);
+    this.save();
+    return entry;
+  },
+
+  // 既存のユーザー定義食品を更新
+  updateCustomFood(id, patch) {
+    const list = this.state.customFoods || [];
+    const i = list.findIndex(f => f.id === id);
+    if (i < 0) return null;
+    list[i] = { ...list[i], ...this._normalizeFood({ ...list[i], ...patch }), id };
+    this.save();
+    return list[i];
+  },
+
+  // ユーザー定義食品を削除（お気に入りからも除去）
+  removeCustomFood(id) {
+    this.state.customFoods = (this.state.customFoods || []).filter(f => f.id !== id);
+    const fi = this.state.favorites.indexOf(id);
+    if (fi >= 0) this.state.favorites.splice(fi, 1);
+    this.save();
+  },
+
+  _normalizeFood(f) {
+    const num = (v) => { const n = parseFloat(v); return isNaN(n) || n < 0 ? 0 : n; };
+    return {
+      name: (f.name || '').trim(),
+      cat: (f.cat || 'マイ食品').trim(),
+      unit: f.unit || 'g',
+      per: Math.max(1, num(f.per) || 1),
+      kcal: num(f.kcal),
+      p: num(f.p),
+      f: num(f.f),
+      c: num(f.c),
+      emoji: f.emoji || '🍽️',
+      custom: true,
+    };
   },
 };

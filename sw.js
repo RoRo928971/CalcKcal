@@ -2,7 +2,7 @@
  * オフライン対応のためアプリシェルをキャッシュする。
  * アプリを更新したら CACHE_VERSION を上げること。
  */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `calckcal-${CACHE_VERSION}`;
 
 // プリキャッシュするアプリシェル（相対パス）

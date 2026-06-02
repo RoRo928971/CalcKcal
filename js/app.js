@@ -368,9 +368,9 @@ const App = {
       const rows = items.length
         ? items.map(i => `
           <div class="food-row">
-            <span class="emoji">${foodEmoji(i.foodId)}</span>
+            <span class="emoji">${i.emoji || foodEmoji(i.foodId)}</span>
             <div class="info">
-              <div class="nm">${i.name}</div>
+              <div class="nm">${this._esc(i.name)}</div>
               <div class="sub">${trimNum(i.amount)}${i.unit} ・ P${Math.round(i.p)} F${Math.round(i.f)} C${Math.round(i.c)}</div>
             </div>
             <span class="kc">${Math.round(i.kcal)}</span>
@@ -430,6 +430,7 @@ const App = {
       <div class="tabs-row" id="inputTabs">
         <button data-st="search" class="${this._recordSubtab==='search'?'active':''}">🔍 検索</button>
         <button data-st="favorite" class="${this._recordSubtab==='favorite'?'active':''}">⭐ お気に入り・履歴</button>
+        <button data-st="mine" class="${this._recordSubtab==='mine'?'active':''}">🍳 マイ食品</button>
         <button data-st="barcode" class="${this._recordSubtab==='barcode'?'active':''}">📷 バーコード</button>
         <button data-st="photo" class="${this._recordSubtab==='photo'?'active':''}">🖼 写真</button>
       </div>
@@ -461,15 +462,42 @@ const App = {
       const favIds = Store.state.favorites;
       const recentIds = Store.recentFoodIds();
       const favHtml = favIds.length
-        ? favIds.map(id => this.foodPickHTML(findFood(id))).filter(Boolean).join('')
+        ? favIds.map(id => this.foodPickHTML(Store.findFood(id))).filter(Boolean).join('')
         : `<div class="empty-meal">お気に入りはまだありません。検索結果の☆で登録できます。</div>`;
       const recHtml = recentIds.length
-        ? recentIds.map(id => this.foodPickHTML(findFood(id))).filter(Boolean).join('')
+        ? recentIds.map(id => this.foodPickHTML(Store.findFood(id))).filter(Boolean).join('')
         : `<div class="empty-meal">最近の記録はありません。</div>`;
       body.innerHTML = `
         <div class="section-label">⭐ お気に入り</div>${favHtml}
         <div class="section-label">🕘 最近使った食品</div>${recHtml}`;
       this.bindFoodPicks();
+      return;
+    }
+
+    if (st === 'mine') {
+      const foods = Store.state.customFoods || [];
+      const list = foods.length
+        ? foods.map(f => this.customFoodRowHTML(f)).join('')
+        : `<div class="empty-meal">まだマイ食品はありません。<br>よく食べるものを登録しておくと、毎回入力せずに記録できます。</div>`;
+      body.innerHTML = `
+        <button class="btn" id="addCustomBtn" style="margin-bottom:14px;">＋ 新しい食品を追加</button>
+        <div class="section-label">🍳 登録した食品（${foods.length}）</div>
+        ${list}`;
+      document.getElementById('addCustomBtn').onclick = () => this.openCustomFoodForm();
+      this.el.screen.querySelectorAll('.food-pick').forEach(row => {
+        const id = row.dataset.food;
+        row.querySelector('[data-edit]').onclick = (e) => { e.stopPropagation(); this.openCustomFoodForm(id); };
+        row.querySelector('[data-cdel]').onclick = (e) => {
+          e.stopPropagation();
+          const f = Store.findFood(id);
+          if (confirm(`「${f ? f.name : 'この食品'}」を削除しますか？`)) {
+            Store.removeCustomFood(id);
+            this.toast('削除しました');
+            this.renderInputBody();
+          }
+        };
+        row.onclick = () => this.openFoodDetail(id);
+      });
       return;
     }
 
@@ -483,13 +511,14 @@ const App = {
     const input = document.getElementById('foodSearch');
     const renderResults = (q) => {
       q = (q || '').trim();
+      const all = Store.allFoods();
       const list = q
-        ? FOOD_DB.filter(f => f.name.includes(q) || f.cat.includes(q))
-        : FOOD_DB.slice(0, 30);
+        ? all.filter(f => f.name.includes(q) || f.cat.includes(q))
+        : all.slice(0, 30);
       const r = document.getElementById('searchResults');
       r.innerHTML = list.length
         ? list.map(f => this.foodPickHTML(f)).join('')
-        : `<div class="empty-meal">「${q}」に一致する食品がありません。</div>`;
+        : `<div class="empty-meal">「${q}」に一致する食品がありません。<br>「🍳 マイ食品」タブから自分で追加できます。</div>`;
       this.bindFoodPicks();
     };
     input.oninput = () => renderResults(input.value);
@@ -500,10 +529,10 @@ const App = {
     if (!f) return '';
     const fav = Store.isFavorite(f.id);
     return `<div class="food-pick" data-food="${f.id}">
-      <span class="emoji">${foodEmoji(f.id)}</span>
+      <span class="emoji">${f.emoji || foodEmoji(f.id)}</span>
       <div class="info">
-        <div class="nm">${f.name}</div>
-        <div class="sub">${Math.round(f.kcal)}kcal / ${trimNum(f.per)}${f.unit} ・ ${f.cat}</div>
+        <div class="nm">${this._esc(f.name)}</div>
+        <div class="sub">${Math.round(f.kcal)}kcal / ${trimNum(f.per)}${f.unit} ・ ${this._esc(f.cat)}</div>
       </div>
       <button class="fav" data-fav="${f.id}">${fav ? '⭐' : '☆'}</button>
       <span class="add-ic">＋</span>
@@ -521,11 +550,142 @@ const App = {
     });
   },
 
+  // マイ食品の一覧行（編集・削除ボタン付き）
+  customFoodRowHTML(f) {
+    return `<div class="food-pick" data-food="${f.id}">
+      <span class="emoji">${f.emoji || '🍽️'}</span>
+      <div class="info">
+        <div class="nm">${this._esc(f.name)}</div>
+        <div class="sub">${Math.round(f.kcal)}kcal / ${trimNum(f.per)}${f.unit} ・ ${this._esc(f.cat)}</div>
+      </div>
+      <button class="fav" data-edit="${f.id}" aria-label="編集">✏️</button>
+      <button class="fav" data-cdel="${f.id}" aria-label="削除">🗑</button>
+    </div>`;
+  },
+
+  /* ===================================================================
+   *  2-b. マイ食品の追加・編集フォーム（モーダル）
+   * =================================================================*/
+  openCustomFoodForm(id) {
+    const editing = !!id;
+    const f = editing ? Store.findFood(id) : null;
+    if (editing && !f) return;
+
+    const cats = ['主食', '肉・魚', '野菜', '果物', '乳・飲料', '間食', 'マイ食品'];
+    const units = ['g', '個', '杯', '枚', '本', 'パック', '切れ', 'ml'];
+    const emojis = ['🍽️','🍚','🍞','🍜','🍝','🍗','🥩','🐟','🥚','🥗','🥦','🍅','🍌','🍎','🥛','🧀','☕','🍫','🍩','🍰','🥤','🍲','🍱','🥪'];
+
+    const cur = f || { name:'', cat:'マイ食品', unit:'g', per:100, kcal:'', p:'', f:'', c:'', emoji:'🍽️' };
+
+    this.el.modal.innerHTML = `
+      <div class="modal-back" id="mback">
+        <div class="sheet" id="sheet">
+          <div class="sheet-grip"></div>
+          <div class="detail-head">
+            <span class="emoji" id="cfEmojiView">${cur.emoji || '🍽️'}</span>
+            <div>
+              <div class="nm">${editing ? 'マイ食品を編集' : '新しい食品を追加'}</div>
+              <div class="sub">栄養値は「基準量あたり」で入力します</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>食品名</label>
+            <input type="text" id="cf-name" value="${this._esc(cur.name)}" placeholder="例：手作りハンバーグ" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label>アイコン</label>
+            <div class="segment" id="cf-emoji" style="flex-wrap:wrap;gap:6px;">
+              ${emojis.map(e => `<button type="button" data-e="${e}" class="${e===(cur.emoji||'🍽️')?'active':''}" style="min-width:0;flex:0 0 auto;width:40px;font-size:20px;padding:8px 0;">${e}</button>`).join('')}
+            </div>
+          </div>
+
+          <div class="inline-fields">
+            <div class="field"><label>カテゴリ</label>
+              <select id="cf-cat">${cats.map(c => `<option ${c===cur.cat?'selected':''}>${c}</option>`).join('')}</select>
+            </div>
+            <div class="field" style="max-width:120px;"><label>単位</label>
+              <select id="cf-unit">${units.map(u => `<option ${u===cur.unit?'selected':''}>${u}</option>`).join('')}</select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>基準量（この量あたりの栄養値を入力）</label>
+            <div class="amount-row" style="margin-bottom:0;">
+              <input type="number" id="cf-per" value="${trimNum(cur.per)}" min="1" step="1" style="width:110px;">
+              <span class="unit" id="cf-unit-label">${cur.unit}</span>
+            </div>
+          </div>
+
+          <div class="inline-fields">
+            <div class="field"><label>カロリー (kcal)</label><input type="number" id="cf-kcal" value="${cur.kcal}" min="0" step="1" inputmode="decimal"></div>
+            <div class="field"><label>P たんぱく質 (g)</label><input type="number" id="cf-p" value="${cur.p}" min="0" step="0.1" inputmode="decimal"></div>
+          </div>
+          <div class="inline-fields">
+            <div class="field"><label>F 脂質 (g)</label><input type="number" id="cf-f" value="${cur.f}" min="0" step="0.1" inputmode="decimal"></div>
+            <div class="field"><label>C 炭水化物 (g)</label><input type="number" id="cf-c" value="${cur.c}" min="0" step="0.1" inputmode="decimal"></div>
+          </div>
+
+          <button class="btn" id="cf-save">${editing ? '保存する' : '追加する'}</button>
+          <button class="btn ghost" id="cf-cancel" style="margin-top:6px;">キャンセル</button>
+        </div>
+      </div>`;
+
+    // 絵文字選択
+    let chosenEmoji = cur.emoji || '🍽️';
+    this.el.modal.querySelectorAll('#cf-emoji button').forEach(b =>
+      b.onclick = () => {
+        chosenEmoji = b.dataset.e;
+        this.syncSeg('#cf-emoji', b);
+        document.getElementById('cfEmojiView').textContent = chosenEmoji;
+      });
+    // 単位変更を基準量ラベルに反映
+    const unitSel = document.getElementById('cf-unit');
+    unitSel.onchange = () => { document.getElementById('cf-unit-label').textContent = unitSel.value; };
+
+    document.getElementById('cf-cancel').onclick = () => this.closeModal();
+    document.getElementById('mback').onclick = (e) => { if (e.target.id === 'mback') this.closeModal(); };
+
+    document.getElementById('cf-save').onclick = () => {
+      const data = {
+        name: document.getElementById('cf-name').value.trim(),
+        emoji: chosenEmoji,
+        cat: document.getElementById('cf-cat').value,
+        unit: document.getElementById('cf-unit').value,
+        per: document.getElementById('cf-per').value,
+        kcal: document.getElementById('cf-kcal').value,
+        p: document.getElementById('cf-p').value,
+        f: document.getElementById('cf-f').value,
+        c: document.getElementById('cf-c').value,
+      };
+      if (!data.name) { this.toast('食品名を入力してください'); return; }
+      if (!(parseFloat(data.kcal) >= 0) && !(parseFloat(data.p) >= 0) && !(parseFloat(data.f) >= 0) && !(parseFloat(data.c) >= 0)) {
+        this.toast('栄養値を1つ以上入力してください'); return;
+      }
+      if (editing) {
+        Store.updateCustomFood(id, data);
+        this.toast('保存しました');
+      } else {
+        Store.addCustomFood(data);
+        this.toast('マイ食品に追加しました');
+      }
+      this.closeModal();
+      this._recordSubtab = 'mine';
+      this.renderInputBody();
+    };
+  },
+
+  _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+
   /* ===================================================================
    *  3. 食品詳細・数量入力（モーダル）
    * =================================================================*/
   openFoodDetail(foodId) {
-    const f = findFood(foodId);
+    const f = Store.findFood(foodId);
     if (!f) return;
     // 既定量: g系は100、それ以外は1単位（perに合わせる）
     let amount = f.unit === 'g' ? 100 : f.per;
@@ -541,10 +701,10 @@ const App = {
           <div class="sheet" id="sheet">
             <div class="sheet-grip"></div>
             <div class="detail-head">
-              <span class="emoji">${foodEmoji(f.id)}</span>
+              <span class="emoji">${f.emoji || foodEmoji(f.id)}</span>
               <div>
-                <div class="nm">${f.name}</div>
-                <div class="sub">${f.cat} ・ ${mealNames[this.recordMeal]}に追加</div>
+                <div class="nm">${this._esc(f.name)}</div>
+                <div class="sub">${this._esc(f.cat)} ・ ${mealNames[this.recordMeal]}に追加</div>
               </div>
             </div>
 
@@ -590,6 +750,7 @@ const App = {
         Store.addLog(this.viewDate, {
           foodId: f.id, name: f.name, meal: this.recordMeal,
           amount, unit: f.unit, kcal: n2.kcal, p: n2.p, f: n2.f, c: n2.c,
+          emoji: f.emoji || foodEmoji(f.id),
         });
         this.closeModal();
         this.toast(`${f.name} を追加しました`);
